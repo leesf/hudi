@@ -3,9 +3,9 @@
     <meta charset="utf-8">
 <meta http-equiv="X-UA-Compatible" content="IE=edge">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<meta name="description" content="">
-<meta name="keywords" content="hudi, use cases, big data, apache">
-<title>Community | Hudi</title>
+<meta name="description" content="Apache Hudi (incubating) Releases Page">
+<meta name="keywords" content="apache, hudi, release, data lake, upsert,">
+<title>Releases | Hudi</title>
 <link rel="stylesheet" href="/css/syntax.css">
 
 
@@ -115,11 +115,11 @@
                 
                 
                 
-                <li><a href="releases.html">Releases</a></li>
+                <li class="active"><a href="releases.html">Releases</a></li>
                 
                 
                 
-                <li class="active"><a href="community.html">Community</a></li>
+                <li><a href="community.html">Community</a></li>
                 
                 
                 
@@ -164,7 +164,7 @@
 
 
 
-  <a class="email" title="Submit feedback" href="#" onclick="javascript:window.location='mailto:dev@hudi.apache.org?subject=Hudi Documentation feedback&body=I have some feedback about the Community page: ' + window.location.href;"><i class="fa fa-envelope-o"></i> Feedback</a>
+  <a class="email" title="Submit feedback" href="#" onclick="javascript:window.location='mailto:dev@hudi.apache.org?subject=Hudi Documentation feedback&body=I have some feedback about the Releases page: ' + window.location.href;"><i class="fa fa-envelope-o"></i> Feedback</a>
 
 <li>
 
@@ -172,7 +172,7 @@
                 <li>
                     
                     <!-- link to the Chinese home page when current is blog page -->
-                    <a href="/cn/community.html">中文版</a>
+                    <a href="/cn/releases.html">中文版</a>
                     
                 </li>
                 <!--comment out this block if you want to hide search-->
@@ -188,7 +188,7 @@
                                 searchInput: document.getElementById('search-input'),
                                 resultsContainer: document.getElementById('results-container'),
                                 dataSource: '/search.json',
-                                searchResultTemplate: '<li><a href="{url}" title="Community">{title}</a></li>',
+                                searchResultTemplate: '<li><a href="{url}" title="Releases">{title}</a></li>',
                     noResultsText: 'No results found.',
                             limit: 10,
                             fuzzy: true,
@@ -220,96 +220,8 @@
 
 
 <ul id="mysidebar" class="nav">
-    <li class="sidebarTitle">Latest Version 0.5.0-incubating</li>
+    <li class="sidebarTitle"> </li>
     
-    
-    
-    <li>
-        <a href="#">Getting Started</a>
-        <ul>
-            
-            
-            
-            <li><a href="quickstart.html">Quickstart</a></li>
-            
-            
-            
-            
-            
-            
-            <li><a href="use_cases.html">Use Cases</a></li>
-            
-            
-            
-            
-            
-            
-            <li><a href="powered_by.html">Talks & Powered By</a></li>
-            
-            
-            
-            
-            
-            
-            <li><a href="comparison.html">Comparison</a></li>
-            
-            
-            
-            
-        </ul>
-        
-        
-    
-    <li>
-        <a href="#">Documentation</a>
-        <ul>
-            
-            
-            
-            <li><a href="concepts.html">Concepts</a></li>
-            
-            
-            
-            
-            
-            
-            <li><a href="writing_data.html">Writing Data</a></li>
-            
-            
-            
-            
-            
-            
-            <li><a href="querying_data.html">Querying Data</a></li>
-            
-            
-            
-            
-            
-            
-            <li><a href="configurations.html">Configuration</a></li>
-            
-            
-            
-            
-            
-            
-            <li><a href="performance.html">Performance</a></li>
-            
-            
-            
-            
-            
-            
-            <li><a href="admin_guide.html">Administering</a></li>
-            
-            
-            
-            
-        </ul>
-        
-        
-        
         <!-- if you aren't using the accordion, uncomment this block:
            <p class="external">
                <a href="#" id="collapseAll">Collapse All</a> | <a href="#" id="expandAll">Expand All</a>
@@ -325,7 +237,7 @@
     <!-- Content Column -->
     <div class="col-md-9">
         <div class="post-header">
-   <h1 class="post-title-main">Community</h1>
+   <h1 class="post-title-main">Releases</h1>
 </div>
 
 
@@ -333,99 +245,66 @@
 <div class="post-content">
 
    
+    <div class="summary">Apache Hudi (incubating) Releases Page</div>
+   
+
+    
+    
+<!-- this handles the automatic toc. use ## for subheads to auto-generate the on-page minitoc. if you use html tags, you must supply an ID for the heading element in order for it to appear in the minitoc. -->
+<script>
+$( document ).ready(function() {
+  // Handler for .ready() called.
+
+$('#toc').toc({ minimumHeaders: 0, listType: 'ul', showSpeed: 0, headers: 'h2,h3,h4' });
+
+/* this offset helps account for the space taken up by the floating toolbar. */
+$('#toc').on('click', 'a', function() {
+  var target = $(this.getAttribute('href'))
+    , scroll_target = target.offset().top
+
+  $(window).scrollTop(scroll_target - 10);
+  return false
+})
+  
+});
+</script>
+
+<div id="toc"></div>
 
     
 
 
     
 
-  <h2 id="engage-with-us">Engage with us</h2>
-
-<p>There are several ways to get in touch with the Hudi community.</p>
-
-<table>
-  <thead>
-    <tr>
-      <th>When?</th>
-      <th>Channel to use</th>
-    </tr>
-  </thead>
-  <tbody>
-    <tr>
-      <td>For any general questions, user support, development discussions</td>
-      <td>Dev Mailing list (<a href="mailto:dev-subscribe@hudi.apache.org">Subscribe</a>, <a href="mailto:dev-unsubscribe@hudi.apache.org">Unsubscribe</a>, <a href="https://lists.apache.org/list.html?dev@hudi.apache.org">Archives</a>). Empty email works for subscribe/unsubscribe. Please use <a href="https://gist.github.com">gists</a> to share code/stacktraces on the email.</td>
-    </tr>
-    <tr>
-      <td>For reporting bugs or issues or discover known issues</td>
-      <td>Please use <a href="https://issues.apache.org/jira/projects/HUDI/summary">ASF Hudi JIRA</a>. See <a href="#accounts">#here</a> for access</td>
-    </tr>
-    <tr>
-      <td>For quick pings &amp; 1-1 chats</td>
-      <td>Join our <a href="https://join.slack.com/t/apache-hudi/signup">slack group</a>. In case your mail domain is not there in pre-approved list for joining slack group, please check out the <a href="https://github.com/apache/incubator-hudi/issues/143">github issue</a></td>
-    </tr>
-    <tr>
-      <td>For proposing large features, changes</td>
-      <td>Start a Hudi Improvement Process (HIP). Instructions <a href="https://cwiki.apache.org/confluence/pages/viewpage.action?pageId=103091449#ApacheHudi(Incubating)-Designdocuments/HIPs">here</a>.</td>
-    </tr>
-    <tr>
-      <td>See <a href="#accounts">#here</a> for wiki access</td>
-      <td> </td>
-    </tr>
-    <tr>
-      <td>For stream of commits, pull requests etc</td>
-      <td>Commits Mailing list (<a href="mailto:commits-subscribe@hudi.apache.org">Subscribe</a>, <a href="mailto:commits-unsubscribe@hudi.apache.org">Unsubscribe</a>, <a href="https://lists.apache.org/list.html?commits@hudi.apache.org">Archives</a>)</td>
-    </tr>
-  </tbody>
-</table>
-
-<p>If you wish to report a security vulnerability, please contact <a href="mailto:security@apache.org">security@apache.org</a>.
-Apache Hudi follows the typical Apache vulnerability handling <a href="https://apache.org/security/committers.html#vulnerability-handling">process</a>.</p>
-
-<h2 id="contributing">Contributing</h2>
-
-<p>Apache Hudi community welcomes contributions from anyone!</p>
-
-<p>Here are few ways, you can get involved.</p>
-
+  <h2 id="latest-stable-release">Latest Stable Release</h2>
 <ul>
-  <li>Ask (and/or) answer questions on our support channels listed above.</li>
-  <li>Review code or HIPs</li>
-  <li>Help improve documentation</li>
-  <li>Author blogs on our wiki</li>
-  <li>Testing; Improving out-of-box experience by reporting bugs</li>
-  <li>Share new ideas/directions to pursue or propose a new HIP</li>
-  <li>Contributing code to the project (<a href="https://issues.apache.org/jira/issues/?jql=project+%3D+HUDI+AND+component+%3D+newbie">newbie JIRAs</a>)</li>
+  <li>Stable Release : <code class="highlighter-rouge">0.5.0-incubating</code></li>
 </ul>
 
-<h2 id="become-a-committer">Become a Committer</h2>
+<h2 id="release-050-incubating">Release 0.5.0-incubating</h2>
 
-<p>We are always looking for strong contributors, who can become <a href="https://www.apache.org/dev/committers.html">committers</a> on the project. 
-Committers are chosen by a majority vote of the Apache Hudi <a href="https://www.apache.org/foundation/how-it-works.html#pmc-members">PMC</a>, after a discussion on their candidacy based on the following criteria (not exclusive/comprehensive).</p>
-
+<h3 id="download-information">Download Information</h3>
 <ul>
-  <li>Embodies the ASF model code of <a href="https://www.apache.org/foundation/policies/conduct.html">conduct</a></li>
-  <li>Has made significant technical contributions such as submitting PRs, filing bugs, testing, benchmarking, authoring HIPs, providing feedback/code reviews (+ more).</li>
-  <li>Has helped the community over a few months, by answering questions on support channels above and triaging issues/jiras.</li>
-  <li>Demonstrates clear code/design ownership of a component or code area (eg: Delta Streamer, Hive/Presto Integration etc).</li>
-  <li>Brought thought leadership and new ideas into the project and evangelized them with the community via conference talks, blog posts.</li>
-  <li>Great citizenship in helping with all peripheral (but very critical) work like site maintenance, wiki/jira cleanups and so on.</li>
-  <li>Proven commitment to the project by way of upholding all agreed upon processes, conventions and principles of the community.</li>
+  <li>Source Release : <a href="https://www.apache.org/dist/incubator/hudi/0.5.0-incubating/hudi-0.5.0-incubating.src.tgz">Apache Hudi(incubating) 0.5.0-incubating Source Release</a> (<a href="https://www.apache.org/dist/incubator/hudi/0.5.0-incubating/hudi-0.5.0-incubating.src.tgz.asc">asc</a>, <a href="https://www.apache.org/dist/incubator/hudi/0.5.0-incubating/hudi-0.5.0-incubating.src.tgz.sha512">sha512</a>)</li>
+  <li>Apache Hudi (incubating) jars corresponding to this release is available <a href="https://repository.apache.org/#nexus-search;quick~hudi">here</a></li>
 </ul>
 
-<h3 id="code-contributions">Code Contributions</h3>
-
-<p>Useful resources for contributing can be found under the “Developers” top menu.
-Specifically, please refer to the detailed <a href="contributing.html">contribution guide</a>.</p>
-
-<h2 id="accounts">Accounts</h2>
-
-<p>It’s useful to obtain few accounts to be able to effectively contribute to Hudi.</p>
-
+<h3 id="release-highlights">Release Highlights</h3>
 <ul>
-  <li>Github account is needed to send pull requests to Hudi</li>
-  <li>Sign-up/in to the Apache <a href="https://issues.apache.org/jira">JIRA</a>. Then please email the dev mailing list with your username, asking to be added as a contributor to the project. This enables you to assign/be-assigned tickets and comment on them.</li>
-  <li>Sign-up/in to the Apache <a href="https://cwiki.apache.org/confluence/signup.action">cWiki</a>, to be able to contribute to the wiki pages/HIPs.</li>
+  <li>Package and format renaming from com.uber.hoodie to org.apache.hudi (See migration guide section below)</li>
+  <li>Major redo of Hudi bundles to address class and jar version mismatches in different environments</li>
+  <li>Upgrade from Hive 1.x to Hive 2.x for compile time dependencies - Hive 1.x runtime integration still works with a patch : See <a href="https://lists.apache.org/thread.html/48b3f0553f47c576fd7072f56bb0d8a24fb47d4003880d179c7f88a3@%3Cdev.hudi.apache.org%3E">the discussion thread</a></li>
+  <li>DeltaStreamer now supports continuous running mode with managed concurrent compaction</li>
+  <li>Support for Composite Keys as record key</li>
+  <li>HoodieCombinedInputFormat to scale huge hive queries running on Hoodie tables</li>
 </ul>
+
+<h3 id="migration-guide-for-this-release">Migration Guide for this release</h3>
+<p>This is the first Apache release for Hudi (incubating). Prior to this release, Hudi Jars were published using “com.uber.hoodie” maven co-ordinates. We have a <a href="https://cwiki.apache.org/confluence/display/HUDI/Migration+Guide+From+com.uber.hoodie+to+org.apache.hudi">migration guide</a></p>
+
+<h3 id="raw-release-notes">Raw Release Notes</h3>
+<p>The raw release notes are available <a href="https://jira.apache.org/jira/secure/ReleaseNote.jspa?projectId=12322822&amp;version=12346087">here</a></p>
+
 
 
     <div class="tags">
