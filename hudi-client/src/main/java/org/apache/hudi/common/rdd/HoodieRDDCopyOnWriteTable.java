@@ -18,12 +18,18 @@ import org.apache.hudi.config.HoodieWriteConfig;
 import org.apache.hudi.table.UserDefinedBulkInsertPartitioner;
 import org.apache.hudi.table.action.commit.HoodieWriteMetadata;
 import org.apache.spark.api.java.JavaRDD;
+import org.apache.spark.api.java.JavaSparkContext;
 
 public class HoodieRDDCopyOnWriteTable<T extends HoodieRecordPayload> extends HoodieRDDTable<T> {
 
   public HoodieRDDCopyOnWriteTable(HoodieWriteConfig config,
-      HoodieTableMetaClient metaClient) {
-    super(config, metaClient);
+                                   HoodieTableMetaClient metaClient) {
+    this(new JavaSparkContext(), config, metaClient);
+  }
+
+  public HoodieRDDCopyOnWriteTable(JavaSparkContext jsc, HoodieWriteConfig config,
+                                   HoodieTableMetaClient metaClient) {
+    super(jsc, config, metaClient);
   }
 
   @Override

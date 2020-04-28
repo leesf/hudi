@@ -20,10 +20,8 @@ package org.apache.hudi.common;
 
 import java.io.IOException;
 import java.io.Serializable;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.TimeoutException;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.apache.hadoop.conf.Configuration;
@@ -36,13 +34,13 @@ import org.apache.hudi.avro.model.HoodieRollbackMetadata;
 import org.apache.hudi.avro.model.HoodieSavepointMetadata;
 import org.apache.hudi.client.SparkTaskContextSupplier;
 import org.apache.hudi.common.config.SerializableConfiguration;
-import org.apache.hudi.common.fs.ConsistencyGuard;
 import org.apache.hudi.common.fs.ConsistencyGuard.FileVisibility;
-import org.apache.hudi.common.fs.FSUtils;
-import org.apache.hudi.common.fs.FailSafeConsistencyGuard;
 import org.apache.hudi.common.model.HoodieKey;
 import org.apache.hudi.common.model.HoodieRecordPayload;
 import org.apache.hudi.common.model.HoodieWriteStat;
+import org.apache.hudi.common.rdd.HoodieRDDBloomIndexV2;
+import org.apache.hudi.common.rdd.HoodieRDDCopyOnWriteTable;
+import org.apache.hudi.common.rdd.HoodieRDDMergeOnReadTable;
 import org.apache.hudi.common.table.HoodieTableMetaClient;
 import org.apache.hudi.common.table.timeline.HoodieActiveTimeline;
 import org.apache.hudi.common.table.timeline.HoodieInstant;
@@ -61,9 +59,6 @@ import org.apache.hudi.config.HoodieWriteConfig;
 import org.apache.hudi.exception.HoodieException;
 import org.apache.hudi.exception.HoodieIOException;
 import org.apache.hudi.exception.HoodieSavepointException;
-import org.apache.hudi.index.HoodieIndex;
-import org.apache.hudi.table.HoodieCopyOnWriteTable;
-import org.apache.hudi.table.HoodieMergeOnReadTable;
 import org.apache.hudi.table.UserDefinedBulkInsertPartitioner;
 import org.apache.hudi.table.action.commit.HoodieWriteMetadata;
 import org.apache.log4j.LogManager;
@@ -78,20 +73,20 @@ public abstract class HoodieTable<T extends HoodieRecordPayload, INPUT extends H
 
   protected final HoodieWriteConfig config;
   protected final HoodieTableMetaClient metaClient;
-  protected final HoodieIndex<T> index;
+  protected final HoodieIndexV2 index;
 
   private SerializableConfiguration hadoopConfiguration;
   private transient FileSystemViewManager viewManager;
 
   protected final SparkTaskContextSupplier sparkTaskContextSupplier = new SparkTaskContextSupplier();
 
-  protected HoodieTable(HoodieWriteConfig config, HoodieTableMetaClient metaClient) {
+  protected HoodieTable(HoodieWriteConfig config, HoodieTableMetaClient metaClient, Configuration configuration) {
     this.config = config;
-    this.hadoopConfiguration = new SerializableConfiguration(jsc.hadoopConfiguration());
-    this.viewManager = FileSystemViewManager.createViewManager(new SerializableConfiguration(jsc.hadoopConfiguration()),
+    this.hadoopConfiguration = new SerializableConfiguration(configuration);
+    this.viewManager = FileSystemViewManager.createViewManager(new SerializableConfiguration(configuration),
         config.getViewStorageConfig());
     this.metaClient = metaClient;
-    this.index = HoodieIndex.createIndex(config, jsc);
+    this.index = new HoodieRDDBloomIndexV2<T>();
   }
 
   private synchronized FileSystemViewManager getViewManager() {
@@ -101,24 +96,30 @@ public abstract class HoodieTable<T extends HoodieRecordPayload, INPUT extends H
     return viewManager;
   }
 
-  public static <T extends HoodieRecordPayload> HoodieTable<T> create(HoodieWriteConfig config) {
+  public static <T extends HoodieRecordPayload,
+          INPUT extends HoodieWriteInput,
+          KEY extends HoodieWriteKey,
+          OUTPUT extends HoodieWriteOutput> HoodieTable<T, INPUT, KEY, OUTPUT> create(HoodieWriteConfig config) {
     HoodieTableMetaClient metaClient = new HoodieTableMetaClient(
-        jsc.hadoopConfiguration(),
+            new Configuration(),
         config.getBasePath(),
         true,
         config.getConsistencyGuardConfig(),
         Option.of(new TimelineLayoutVersion(config.getTimelineLayoutVersion()))
     );
-    return HoodieTable.create(metaClient, config, jsc);
+    return HoodieTable.create(metaClient, config);
   }
 
-  public static <T extends HoodieRecordPayload> HoodieTable<T> create(HoodieTableMetaClient metaClient,
+  public static <T extends HoodieRecordPayload,
+          INPUT extends HoodieWriteInput,
+          KEY extends HoodieWriteKey,
+          OUTPUT extends HoodieWriteOutput> HoodieTable<T, INPUT, KEY, OUTPUT> create(HoodieTableMetaClient metaClient,
                                                                       HoodieWriteConfig config) {
     switch (metaClient.getTableType()) {
       case COPY_ON_WRITE:
-        return new HoodieCopyOnWriteTable<>(config, jsc, metaClient);
+        return new HoodieRDDCopyOnWriteTable(config, metaClient);
       case MERGE_ON_READ:
-        return new HoodieMergeOnReadTable<>(config, jsc, metaClient);
+        return new HoodieRDDMergeOnReadTable(config, metaClient);
       default:
         throw new HoodieException("Unsupported table type :" + metaClient.getTableType());
     }
@@ -308,7 +309,7 @@ public abstract class HoodieTable<T extends HoodieRecordPayload, INPUT extends H
   /**
    * Return the index.
    */
-  public HoodieIndex<T> getIndex() {
+  public HoodieIndexV2 getIndex() {
     return index;
   }
 
@@ -360,12 +361,11 @@ public abstract class HoodieTable<T extends HoodieRecordPayload, INPUT extends H
   /**
    * Finalize the written data onto storage. Perform any final cleanups.
    *
-   * @param jsc Spark Context
    * @param stats List of HoodieWriteStats
    * @throws HoodieIOException if some paths can't be finalized on storage
    */
   public void finalizeWrite(String instantTs, List<HoodieWriteStat> stats) throws HoodieIOException {
-    cleanFailedWrites(jsc, instantTs, stats, config.getConsistencyGuardConfig().isConsistencyCheckEnabled());
+    cleanFailedWrites(instantTs, stats, config.getConsistencyGuardConfig().isConsistencyCheckEnabled());
   }
 
   /**
@@ -387,82 +387,8 @@ public abstract class HoodieTable<T extends HoodieRecordPayload, INPUT extends H
     }
   }
 
-  /**
-   * Reconciles WriteStats and marker files to detect and safely delete duplicate data files created because of Spark
-   * retries.
-   *
-   * @param instantTs Instant Timestamp
-   * @param stats Hoodie Write Stat
-   * @param consistencyCheckEnabled Consistency Check Enabled
-   * @throws HoodieIOException
-   */
-  protected void cleanFailedWrites(String instantTs, List<HoodieWriteStat> stats,
-      boolean consistencyCheckEnabled) throws HoodieIOException {
-    try {
-      // Reconcile marker and data files with WriteStats so that partially written data-files due to failed
-      // (but succeeded on retry) tasks are removed.
-      String basePath = getMetaClient().getBasePath();
-      FileSystem fs = getMetaClient().getFs();
-      Path markerDir = new Path(metaClient.getMarkerFolderPath(instantTs));
-
-      if (!fs.exists(markerDir)) {
-        // Happens when all writes are appends
-        return;
-      }
-
-      List<String> invalidDataPaths = FSUtils.getAllDataFilesForMarkers(fs, basePath, instantTs, markerDir.toString());
-      List<String> validDataPaths = stats.stream().map(w -> String.format("%s/%s", basePath, w.getPath()))
-          .filter(p -> p.endsWith(".parquet")).collect(Collectors.toList());
-      // Contains list of partially created files. These needs to be cleaned up.
-      invalidDataPaths.removeAll(validDataPaths);
-      if (!invalidDataPaths.isEmpty()) {
-        LOG.info(
-            "Removing duplicate data files created due to spark retries before committing. Paths=" + invalidDataPaths);
-      }
-
-      Map<String, List<Pair<String, String>>> groupByPartition = invalidDataPaths.stream()
-          .map(dp -> Pair.of(new Path(dp).getParent().toString(), dp)).collect(Collectors.groupingBy(Pair::getKey));
-
-      if (!groupByPartition.isEmpty()) {
-        // Ensure all files in delete list is actually present. This is mandatory for an eventually consistent FS.
-        // Otherwise, we may miss deleting such files. If files are not found even after retries, fail the commit
-        if (consistencyCheckEnabled) {
-          // This will either ensure all files to be deleted are present.
-          waitForAllFiles(jsc, groupByPartition, FileVisibility.APPEAR);
-        }
-
-        // Now delete partially written files
-        jsc.parallelize(new ArrayList<>(groupByPartition.values()), config.getFinalizeWriteParallelism())
-            .map(partitionWithFileList -> {
-              final FileSystem fileSystem = metaClient.getFs();
-              LOG.info("Deleting invalid data files=" + partitionWithFileList);
-              if (partitionWithFileList.isEmpty()) {
-                return true;
-              }
-              // Delete
-              partitionWithFileList.stream().map(Pair::getValue).forEach(file -> {
-                try {
-                  fileSystem.delete(new Path(file), false);
-                } catch (IOException e) {
-                  throw new HoodieIOException(e.getMessage(), e);
-                }
-              });
-
-              return true;
-            }).collect();
-
-        // Now ensure the deleted files disappear
-        if (consistencyCheckEnabled) {
-          // This will either ensure all files to be deleted are absent.
-          waitForAllFiles(jsc, groupByPartition, FileVisibility.DISAPPEAR);
-        }
-      }
-      // Now delete the marker directory
-      deleteMarkerDir(instantTs);
-    } catch (IOException ioe) {
-      throw new HoodieIOException(ioe.getMessage(), ioe);
-    }
-  }
+  public abstract void cleanFailedWrites(String instantTs, List<HoodieWriteStat> stats,
+                                              boolean consistencyCheckEnabled) throws HoodieIOException;
 
   /**
    * Ensures all files passed either appear or disappear.
@@ -470,33 +396,7 @@ public abstract class HoodieTable<T extends HoodieRecordPayload, INPUT extends H
    * @param groupByPartition Files grouped by partition
    * @param visibility Appear/Disappear
    */
-  private void waitForAllFiles(Map<String, List<Pair<String, String>>> groupByPartition, FileVisibility visibility) {
-    // This will either ensure all files to be deleted are present.
-    boolean checkPassed =
-        jsc.parallelize(new ArrayList<>(groupByPartition.entrySet()), config.getFinalizeWriteParallelism())
-            .map(partitionWithFileList -> waitForCondition(partitionWithFileList.getKey(),
-                partitionWithFileList.getValue().stream(), visibility))
-            .collect().stream().allMatch(x -> x);
-    if (!checkPassed) {
-      throw new HoodieIOException("Consistency check failed to ensure all files " + visibility);
-    }
-  }
-
-  private boolean waitForCondition(String partitionPath, Stream<Pair<String, String>> partitionFilePaths, FileVisibility visibility) {
-    final FileSystem fileSystem = metaClient.getRawFs();
-    List<String> fileList = partitionFilePaths.map(Pair::getValue).collect(Collectors.toList());
-    try {
-      getFailSafeConsistencyGuard(fileSystem).waitTill(partitionPath, fileList, visibility);
-    } catch (IOException | TimeoutException ioe) {
-      LOG.error("Got exception while waiting for files to show up", ioe);
-      return false;
-    }
-    return true;
-  }
-
-  private ConsistencyGuard getFailSafeConsistencyGuard(FileSystem fileSystem) {
-    return new FailSafeConsistencyGuard(fileSystem, config.getConsistencyGuardConfig());
-  }
+  public abstract void waitForAllFiles(Map<String, List<Pair<String, String>>> groupByPartition, FileVisibility visibility);
 
   public SparkTaskContextSupplier getSparkTaskContextSupplier() {
     return sparkTaskContextSupplier;
