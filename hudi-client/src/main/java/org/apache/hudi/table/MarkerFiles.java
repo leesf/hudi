@@ -23,6 +23,7 @@ import org.apache.hudi.common.fs.FSUtils;
 import org.apache.hudi.common.model.IOType;
 import org.apache.hudi.common.table.HoodieTableMetaClient;
 import org.apache.hudi.common.util.ValidationUtils;
+import org.apache.hudi.config.HoodieWriteConfig;
 import org.apache.hudi.exception.HoodieException;
 import org.apache.hudi.exception.HoodieIOException;
 
@@ -55,6 +56,7 @@ public class MarkerFiles implements Serializable {
   private final transient FileSystem fs;
   private final transient Path markerDirPath;
   private final String basePath;
+  private HoodieWriteConfig config;
 
   public MarkerFiles(FileSystem fs, String basePath, String markerFolderPath, String instantTime) {
     this.instantTime = instantTime;
@@ -68,6 +70,7 @@ public class MarkerFiles implements Serializable {
         table.getMetaClient().getBasePath(),
         table.getMetaClient().getMarkerFolderPath(instantTime),
         instantTime);
+    this.config = table.getConfig();
   }
 
   public void quietDeleteMarkerDir(JavaSparkContext jsc, int parallelism) {
@@ -94,12 +97,25 @@ public class MarkerFiles implements Serializable {
 
         if (markerDirSubPaths.size() > 0) {
           SerializableConfiguration conf = new SerializableConfiguration(fs.getConf());
-          parallelism = Math.min(markerDirSubPaths.size(), parallelism);
-          jsc.parallelize(markerDirSubPaths, parallelism).foreach(subPathStr -> {
-            Path subPath = new Path(subPathStr);
-            FileSystem fileSystem = subPath.getFileSystem(conf.get());
-            fileSystem.delete(subPath, true);
-          });
+          if (!config.shouldMergeSmallTask()) {
+            parallelism = Math.min(markerDirSubPaths.size(), parallelism);
+            jsc.setJobGroup(this.getClass().getSimpleName(), "delete marker dir");
+            jsc.parallelize(markerDirSubPaths, parallelism).foreach(subPathStr -> {
+              Path subPath = new Path(subPathStr);
+              FileSystem fileSystem = subPath.getFileSystem(conf.get());
+              fileSystem.delete(subPath, true);
+            });
+          } else {
+            markerDirSubPaths.stream().forEach(subPathStr -> {
+              try {
+                Path subPath = new Path(subPathStr);
+                FileSystem fileSystem = subPath.getFileSystem(conf.get());
+                fileSystem.delete(subPath, true);
+              } catch (Exception e) {
+                throw new HoodieException(e);
+              }
+            });
+          }
         }
 
         boolean result = fs.delete(markerDirPath, true);
@@ -135,6 +151,7 @@ public class MarkerFiles implements Serializable {
     if (subDirectories.size() > 0) {
       parallelism = Math.min(subDirectories.size(), parallelism);
       SerializableConfiguration serializedConf = new SerializableConfiguration(fs.getConf());
+      jsc.setJobGroup(this.getClass().getSimpleName(), "MarkerFiles created and merged data paths");
       dataFiles.addAll(jsc.parallelize(subDirectories, parallelism).flatMap(directory -> {
         Path path = new Path(directory);
         FileSystem fileSystem = path.getFileSystem(serializedConf.get());

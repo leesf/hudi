@@ -82,6 +82,19 @@ public class HoodieDLAClient extends AbstractSyncHoodieClient {
     createDLAConnection();
   }
 
+  public HoodieDLAClient(DLASyncConfig syncConfig, FileSystem fs, Connection connection) {
+    super(syncConfig.basePath, syncConfig.assumeDatePartitioning, fs);
+    this.dlaConfig = syncConfig;
+    try {
+      this.partitionValueExtractor =
+              (PartitionValueExtractor) Class.forName(dlaConfig.partitionValueExtractorClass).newInstance();
+    } catch (Exception e) {
+      throw new HoodieException(
+              "Failed to initialize PartitionValueExtractor class " + dlaConfig.partitionValueExtractorClass, e);
+    }
+    this.connection = connection;
+  }
+
   private void createDLAConnection() {
     if (connection == null) {
       try {

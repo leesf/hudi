@@ -26,10 +26,14 @@ import org.apache.hudi.common.util.Option;
 import org.apache.hudi.common.util.collection.Pair;
 import org.apache.hudi.table.HoodieTable;
 
+import org.apache.log4j.LogManager;
+import org.apache.log4j.Logger;
 import org.apache.spark.api.java.JavaSparkContext;
 
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.List;
+import java.util.stream.Collectors;
 
 import static java.util.stream.Collectors.toList;
 
@@ -37,7 +41,7 @@ import static java.util.stream.Collectors.toList;
  * Hoodie Index Utilities.
  */
 public class HoodieIndexUtils {
-
+  private static final Logger LOG = LogManager.getLogger(HoodieIndexUtils.class);
   /**
    * Fetches Pair of partition path and {@link HoodieBaseFile}s for interested partitions.
    *
@@ -49,21 +53,43 @@ public class HoodieIndexUtils {
   public static List<Pair<String, HoodieBaseFile>> getLatestBaseFilesForAllPartitions(final List<String> partitions,
                                                                                       final JavaSparkContext jsc,
                                                                                       final HoodieTable hoodieTable) {
-    jsc.setJobGroup(HoodieIndexUtils.class.getSimpleName(), "Load latest base files from all partitions");
-    return jsc.parallelize(partitions, Math.max(partitions.size(), 1))
-        .flatMap(partitionPath -> {
-          Option<HoodieInstant> latestCommitTime = hoodieTable.getMetaClient().getCommitsTimeline()
-              .filterCompletedInstants().lastInstant();
-          List<Pair<String, HoodieBaseFile>> filteredFiles = new ArrayList<>();
-          if (latestCommitTime.isPresent()) {
-            filteredFiles = hoodieTable.getBaseFileOnlyView()
-                .getLatestBaseFilesBeforeOrOn(partitionPath, latestCommitTime.get().getTimestamp())
-                .map(f -> Pair.of(partitionPath, f))
-                .collect(toList());
-          }
-          return filteredFiles.iterator();
-        })
-        .collect();
+    List<Pair<String, HoodieBaseFile>> res;
+    if (!hoodieTable.getConfig().shouldMergeSmallTask()) {
+      jsc.setJobGroup(HoodieIndexUtils.class.getSimpleName(), "Load latest base files from all partitions");
+      long start = System.currentTimeMillis();
+      res = jsc.parallelize(partitions, Math.max(partitions.size(), 1))
+                .flatMap(partitionPath -> {
+                  Option<HoodieInstant> latestCommitTime = hoodieTable.getMetaClient().getCommitsTimeline()
+                            .filterCompletedInstants().lastInstant();
+                  List<Pair<String, HoodieBaseFile>> filteredFiles = new ArrayList<>();
+                  if (latestCommitTime.isPresent()) {
+                    filteredFiles = hoodieTable.getBaseFileOnlyView()
+                            .getLatestBaseFilesBeforeOrOn(partitionPath, latestCommitTime.get().getTimestamp())
+                            .map(f -> Pair.of(partitionPath, f))
+                            .collect(toList());
+                  }
+                  return filteredFiles.iterator();
+                })
+                .collect();
+      LOG.info(String.format("[%s] getLatestBaseFilesForAll cost = %d", hoodieTable.getConfig().getTableName(), (System.currentTimeMillis() - start) / 1000));
+      return res;
+    } else {
+      long start = System.currentTimeMillis();
+      res = partitions.stream().map(partitionPath -> {
+        Option<HoodieInstant> latestCommitTime = hoodieTable.getMetaClient().getCommitsTimeline()
+                  .filterCompletedInstants().lastInstant();
+        List<Pair<String, HoodieBaseFile>> filteredFiles = new ArrayList<>();
+        if (latestCommitTime.isPresent()) {
+          filteredFiles = hoodieTable.getBaseFileOnlyView()
+                    .getLatestBaseFilesBeforeOrOn(partitionPath, latestCommitTime.get().getTimestamp())
+                    .map(f -> Pair.of(partitionPath, f))
+                    .collect(toList());
+        }
+        return filteredFiles;
+      }).collect(Collectors.toList()).stream().flatMap(Collection::stream).collect(Collectors.toList());
+      LOG.info(String.format("[%s] getLatestBaseFilesForAll cost = %d", hoodieTable.getConfig().getTableName(), (System.currentTimeMillis() - start) / 1000));
+      return res;
+    }
   }
 
   /**

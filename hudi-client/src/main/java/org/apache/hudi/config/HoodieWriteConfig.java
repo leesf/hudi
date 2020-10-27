@@ -86,6 +86,8 @@ public class HoodieWriteConfig extends DefaultHoodieConfig {
   public static final String DEFAULT_WRITE_STATUS_STORAGE_LEVEL = "MEMORY_AND_DISK_SER";
   public static final String HOODIE_AUTO_COMMIT_PROP = "hoodie.auto.commit";
   public static final String DEFAULT_HOODIE_AUTO_COMMIT = "true";
+  public static final String HOODIE_MERGE_SMALL_TASK_PROP = "hoodie.merge.small.task";
+  public static final String DEFAULT_HOODIE_MERGE_SMALL_TASK_PROP = "false";
   public static final String HOODIE_ASSUME_DATE_PARTITIONING_PROP = "hoodie.assume.date.partitioning";
   public static final String DEFAULT_ASSUME_DATE_PARTITIONING = "false";
   public static final String HOODIE_WRITE_STATUS_CLASS_PROP = "hoodie.writestatus.class";
@@ -178,6 +180,10 @@ public class HoodieWriteConfig extends DefaultHoodieConfig {
 
   public Boolean shouldAutoCommit() {
     return Boolean.parseBoolean(props.getProperty(HOODIE_AUTO_COMMIT_PROP));
+  }
+
+  public Boolean shouldMergeSmallTask() {
+    return Boolean.parseBoolean(props.getProperty(HOODIE_MERGE_SMALL_TASK_PROP));
   }
 
   public Boolean shouldAssumeDatePartitioning() {
@@ -907,6 +913,11 @@ public class HoodieWriteConfig extends DefaultHoodieConfig {
       return this;
     }
 
+    public Builder withMergeSmallTask(boolean mergeSmallTask) {
+      props.setProperty(HOODIE_MERGE_SMALL_TASK_PROP, String.valueOf(mergeSmallTask));
+      return this;
+    }
+
     public Builder withAssumeDatePartitioning(boolean assumeDatePartitioning) {
       props.setProperty(HOODIE_ASSUME_DATE_PARTITIONING_PROP, String.valueOf(assumeDatePartitioning));
       return this;
@@ -993,6 +1004,8 @@ public class HoodieWriteConfig extends DefaultHoodieConfig {
           DEFAULT_WRITE_STATUS_STORAGE_LEVEL);
       setDefaultOnCondition(props, !props.containsKey(HOODIE_AUTO_COMMIT_PROP), HOODIE_AUTO_COMMIT_PROP,
           DEFAULT_HOODIE_AUTO_COMMIT);
+      setDefaultOnCondition(props, !props.containsKey(HOODIE_MERGE_SMALL_TASK_PROP), HOODIE_MERGE_SMALL_TASK_PROP,
+              DEFAULT_HOODIE_MERGE_SMALL_TASK_PROP);
       setDefaultOnCondition(props, !props.containsKey(HOODIE_ASSUME_DATE_PARTITIONING_PROP),
           HOODIE_ASSUME_DATE_PARTITIONING_PROP, DEFAULT_ASSUME_DATE_PARTITIONING);
       setDefaultOnCondition(props, !props.containsKey(HOODIE_WRITE_STATUS_CLASS_PROP), HOODIE_WRITE_STATUS_CLASS_PROP,

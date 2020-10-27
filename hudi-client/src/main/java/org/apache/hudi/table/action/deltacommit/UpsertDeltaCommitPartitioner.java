@@ -32,6 +32,8 @@ import org.apache.hudi.table.WorkloadProfile;
 
 import org.apache.hudi.table.action.commit.SmallFile;
 import org.apache.hudi.table.action.commit.UpsertPartitioner;
+import org.apache.log4j.LogManager;
+import org.apache.log4j.Logger;
 import org.apache.spark.api.java.JavaSparkContext;
 
 import java.util.ArrayList;
@@ -44,6 +46,8 @@ import java.util.stream.Collectors;
  */
 public class UpsertDeltaCommitPartitioner<T extends HoodieRecordPayload<T>> extends UpsertPartitioner<T> {
 
+  private static final Logger LOG = LogManager.getLogger(UpsertDeltaCommitPartitioner.class);
+
   UpsertDeltaCommitPartitioner(WorkloadProfile profile, JavaSparkContext jsc, HoodieTable<T> table,
       HoodieWriteConfig config) {
     super(profile, jsc, table, config);
@@ -51,7 +55,7 @@ public class UpsertDeltaCommitPartitioner<T extends HoodieRecordPayload<T>> exte
 
   @Override
   protected List<SmallFile> getSmallFiles(String partitionPath) {
-
+    long start = System.currentTimeMillis();
     // smallFiles only for partitionPath
     List<SmallFile> smallFileLocations = new ArrayList<>();
 
@@ -108,6 +112,7 @@ public class UpsertDeltaCommitPartitioner<T extends HoodieRecordPayload<T>> exte
         }
       }
     }
+    LOG.info("find small files cost = " + ((System.currentTimeMillis() - start) / 1000));
     return smallFileLocations;
   }
 

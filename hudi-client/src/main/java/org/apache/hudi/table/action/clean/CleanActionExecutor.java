@@ -83,12 +83,19 @@ public class CleanActionExecutor extends BaseActionExecutor<HoodieCleanMetadata>
       int cleanerParallelism = Math.min(partitionsToClean.size(), config.getCleanerParallelism());
       LOG.info("Using cleanerParallelism: " + cleanerParallelism);
 
-      jsc.setJobGroup(this.getClass().getSimpleName(), "Generates list of file slices to be cleaned");
-      Map<String, List<HoodieCleanFileInfo>> cleanOps = jsc
+      Map<String, List<HoodieCleanFileInfo>> cleanOps;
+      if (!config.shouldMergeSmallTask()) {
+        jsc.setJobGroup(this.getClass().getSimpleName(), "Generates list of file slices to be cleaned");
+        cleanOps = jsc
           .parallelize(partitionsToClean, cleanerParallelism)
           .map(partitionPathToClean -> Pair.of(partitionPathToClean, planner.getDeletePaths(partitionPathToClean)))
           .collect().stream()
           .collect(Collectors.toMap(Pair::getKey, y -> CleanerUtils.convertToHoodieCleanFileInfoList(y.getValue())));
+      } else {
+        cleanOps = partitionsToClean.stream()
+                .map(partitionPathToClean -> Pair.of(partitionPathToClean, planner.getDeletePaths(partitionPathToClean)))
+                .collect(Collectors.toList()).stream().collect(Collectors.toMap(Pair::getKey, y -> CleanerUtils.convertToHoodieCleanFileInfoList(y.getValue())));
+      }
 
       return new HoodieCleanerPlan(earliestInstant
           .map(x -> new HoodieActionInstant(x.getTimestamp(), x.getAction(), x.getState().name())).orElse(null),

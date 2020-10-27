@@ -406,6 +406,7 @@ public abstract class HoodieTable<T extends HoodieRecordPayload> implements Seri
 
   private void deleteInvalidFilesByPartitions(JavaSparkContext jsc, Map<String, List<Pair<String, String>>> invalidFilesByPartition) {
     // Now delete partially written files
+    jsc.setJobGroup(this.getClass().getSimpleName(), "delete invalid files by partitions");
     jsc.parallelize(new ArrayList<>(invalidFilesByPartition.values()), config.getFinalizeWriteParallelism())
         .map(partitionWithFileList -> {
           final FileSystem fileSystem = metaClient.getFs();

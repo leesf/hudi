@@ -27,6 +27,7 @@ import org.apache.hudi.common.model.HoodieRecordPayload;
 import org.apache.hudi.common.util.Option;
 import org.apache.hudi.common.util.collection.Pair;
 import org.apache.hudi.config.HoodieWriteConfig;
+import org.apache.hudi.exception.HoodieException;
 import org.apache.hudi.exception.MetadataNotFoundException;
 import org.apache.hudi.index.HoodieIndex;
 import org.apache.hudi.index.HoodieIndexUtils;
@@ -41,6 +42,7 @@ import org.apache.spark.api.java.JavaRDD;
 import org.apache.spark.api.java.JavaSparkContext;
 import org.apache.spark.storage.StorageLevel;
 
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -152,7 +154,7 @@ public class HoodieBloomIndex<T extends HoodieRecordPayload> extends HoodieIndex
     // Step 3: Obtain a RDD, for each incoming record, that already exists, with the file id,
     // that contains it.
     Map<String, Long> comparisonsPerFileGroup =
-        computeComparisonsPerFileGroup(recordsPerPartition, partitionToFileInfo, partitionRecordKeyPairRDD);
+        computeComparisonsPerFileGroup(recordsPerPartition, partitionToFileInfo, partitionRecordKeyPairRDD, jsc);
     int inputParallelism = partitionRecordKeyPairRDD.partitions().size();
     int joinParallelism = Math.max(inputParallelism, config.getBloomIndexParallelism());
     LOG.info("InputParallelism: ${" + inputParallelism + "}, IndexParallelism: ${"
@@ -166,12 +168,14 @@ public class HoodieBloomIndex<T extends HoodieRecordPayload> extends HoodieIndex
    */
   private Map<String, Long> computeComparisonsPerFileGroup(final Map<String, Long> recordsPerPartition,
                                                            final Map<String, List<BloomIndexFileInfo>> partitionToFileInfo,
-                                                           JavaPairRDD<String, String> partitionRecordKeyPairRDD) {
+                                                           JavaPairRDD<String, String> partitionRecordKeyPairRDD,
+                                                           final JavaSparkContext jsc) {
 
     Map<String, Long> fileToComparisons;
     if (config.getBloomIndexPruneByRanges()) {
       // we will just try exploding the input and then count to determine comparisons
       // FIX(vc): Only do sampling here and extrapolate?
+      jsc.setJobGroup(this.getClass().getSimpleName(), "ExplodeRecordRDDWithFileComparisons");
       fileToComparisons = explodeRecordRDDWithFileComparisons(partitionToFileInfo, partitionRecordKeyPairRDD)
           .mapToPair(t -> t).countByKey();
     } else {
@@ -199,17 +203,32 @@ public class HoodieBloomIndex<T extends HoodieRecordPayload> extends HoodieIndex
 
     if (config.getBloomIndexPruneByRanges()) {
       // also obtain file ranges, if range pruning is enabled
-      jsc.setJobDescription("Obtain key ranges for file slices (range pruning=on)");
-      return jsc.parallelize(partitionPathFileIDList, Math.max(partitionPathFileIDList.size(), 1)).mapToPair(pf -> {
-        try {
-          HoodieRangeInfoHandle<T> rangeInfoHandle = new HoodieRangeInfoHandle<T>(config, hoodieTable, pf);
-          String[] minMaxKeys = rangeInfoHandle.getMinMaxKeys();
-          return new Tuple2<>(pf.getKey(), new BloomIndexFileInfo(pf.getValue(), minMaxKeys[0], minMaxKeys[1]));
-        } catch (MetadataNotFoundException me) {
-          LOG.warn("Unable to find range metadata in file :" + pf);
-          return new Tuple2<>(pf.getKey(), new BloomIndexFileInfo(pf.getValue()));
-        }
-      }).collect();
+      if (!config.shouldMergeSmallTask()) {
+        jsc.setJobDescription("Obtain key ranges for file slices (range pruning=on)");
+        return jsc.parallelize(partitionPathFileIDList, Math.max(partitionPathFileIDList.size(), 1)).mapToPair(pf -> {
+          try {
+            HoodieRangeInfoHandle<T> rangeInfoHandle = new HoodieRangeInfoHandle<T>(config, hoodieTable, pf);
+            String[] minMaxKeys = rangeInfoHandle.getMinMaxKeys();
+            return new Tuple2<>(pf.getKey(), new BloomIndexFileInfo(pf.getValue(), minMaxKeys[0], minMaxKeys[1]));
+          } catch (MetadataNotFoundException me) {
+            LOG.warn("Unable to find range metadata in file :" + pf);
+            return new Tuple2<>(pf.getKey(), new BloomIndexFileInfo(pf.getValue()));
+          }
+        }).collect();
+      } else {
+        return partitionPathFileIDList.stream().map(pf -> {
+          try {
+            HoodieRangeInfoHandle<T> rangeInfoHandle = new HoodieRangeInfoHandle<T>(config, hoodieTable, pf);
+            String[] minMaxKeys = rangeInfoHandle.getMinMaxKeys();
+            return new Tuple2<>(pf.getKey(), new BloomIndexFileInfo(pf.getValue(), minMaxKeys[0], minMaxKeys[1]));
+          } catch (MetadataNotFoundException me) {
+            LOG.warn("Unable to find range metadata in file :" + pf);
+            return new Tuple2<>(pf.getKey(), new BloomIndexFileInfo(pf.getValue()));
+          } catch (IOException e) {
+            throw new HoodieException(e);
+          }
+        }).collect(toList());
+      }
     } else {
       return partitionPathFileIDList.stream()
           .map(pf -> new Tuple2<>(pf.getKey(), new BloomIndexFileInfo(pf.getValue()))).collect(toList());

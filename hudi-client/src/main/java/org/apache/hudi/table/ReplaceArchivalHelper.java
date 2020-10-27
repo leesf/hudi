@@ -66,7 +66,7 @@ public class ReplaceArchivalHelper implements Serializable {
   public static boolean deleteReplacedFileGroups(JavaSparkContext jsc, HoodieTableMetaClient metaClient,
                                                  TableFileSystemView fileSystemView,
                                                  HoodieInstant instant, List<String> replacedPartitions) {
-
+    jsc.setJobDescription("delete replaced file groups");
     JavaRDD<String> partitions = jsc.parallelize(replacedPartitions, replacedPartitions.size());
     return partitions.map(partition -> {
       Stream<FileSlice> fileSlices =  fileSystemView.getReplacedFileGroupsBeforeOrOn(instant.getTimestamp(), partition)

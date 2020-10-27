@@ -213,10 +213,16 @@ public class UpsertPartitioner<T extends HoodieRecordPayload<T>> extends Partiti
 
     Map<String, List<SmallFile>> partitionSmallFilesMap = new HashMap<>();
     if (partitionPaths != null && partitionPaths.size() > 0) {
-      jsc.setJobGroup(this.getClass().getSimpleName(), "Getting small files from partitions");
-      JavaRDD<String> partitionPathRdds = jsc.parallelize(partitionPaths, partitionPaths.size());
-      partitionSmallFilesMap = partitionPathRdds.mapToPair((PairFunction<String, String, List<SmallFile>>)
+      if (!config.shouldMergeSmallTask()) {
+        jsc.setJobGroup(this.getClass().getSimpleName(), "Getting small files from partitions");
+        JavaRDD<String> partitionPathRdds = jsc.parallelize(partitionPaths, partitionPaths.size());
+        partitionSmallFilesMap = partitionPathRdds.mapToPair((PairFunction<String, String, List<SmallFile>>)
           partitionPath -> new Tuple2<>(partitionPath, getSmallFiles(partitionPath))).collectAsMap();
+      } else {
+        partitionSmallFilesMap = partitionPaths.stream()
+                .map(partitionPath -> new Tuple2<>(partitionPath, getSmallFiles(partitionPath)))
+                .collect(Collectors.toMap(Tuple2::_1, Tuple2::_2));
+      }
     }
 
     return partitionSmallFilesMap;

@@ -82,6 +82,26 @@ public class DLASyncTool extends AbstractSyncTool {
     }
   }
 
+  public DLASyncTool(Properties properties, FileSystem fs, HoodieDLAClient hoodieDLAClient) {
+    super(properties, fs);
+    this.hoodieDLAClient = hoodieDLAClient;
+    this.cfg = Utils.propertiesToConfig(properties);
+    switch (hoodieDLAClient.getTableType()) {
+      case COPY_ON_WRITE:
+        this.snapshotTableName = cfg.tableName;
+        this.roTableTableName = Option.empty();
+        break;
+      case MERGE_ON_READ:
+        this.snapshotTableName = cfg.tableName + SUFFIX_SNAPSHOT_TABLE;
+        this.roTableTableName = cfg.skipROSuffix ? Option.of(cfg.tableName) :
+                Option.of(cfg.tableName + SUFFIX_READ_OPTIMIZED_TABLE);
+        break;
+      default:
+        LOG.error("Unknown table type " + hoodieDLAClient.getTableType());
+        throw new InvalidTableException(hoodieDLAClient.getBasePath());
+    }
+  }
+
   @Override
   public void syncHoodieTable() {
     try {
@@ -93,7 +113,9 @@ public class DLASyncTool extends AbstractSyncTool {
           // sync a RO table for MOR
           syncHoodieTable(roTableTableName.get(), false);
           // sync a RT table for MOR
-          syncHoodieTable(snapshotTableName, true);
+          if (!cfg.skipRTSync) {
+            syncHoodieTable(snapshotTableName, true);
+          }
           break;
         default:
           LOG.error("Unknown table type " + hoodieDLAClient.getTableType());
@@ -103,6 +125,33 @@ public class DLASyncTool extends AbstractSyncTool {
       LOG.error("Got runtime exception when dla syncing", re);
     } finally {
       hoodieDLAClient.close();
+    }
+  }
+
+  public void syncHoodieTable(boolean closeClient) {
+    try {
+      switch (hoodieDLAClient.getTableType()) {
+        case COPY_ON_WRITE:
+          syncHoodieTable(snapshotTableName, false);
+          break;
+        case MERGE_ON_READ:
+          // sync a RO table for MOR
+          syncHoodieTable(roTableTableName.get(), false);
+          // sync a RT table for MOR
+          if (!cfg.skipRTSync) {
+            syncHoodieTable(snapshotTableName, true);
+          }
+          break;
+        default:
+          LOG.error("Unknown table type " + hoodieDLAClient.getTableType());
+          throw new InvalidTableException(hoodieDLAClient.getBasePath());
+      }
+    } catch (RuntimeException re) {
+      LOG.error("Got runtime exception when dla syncing", re);
+    } finally {
+      if (closeClient) {
+        hoodieDLAClient.close();
+      }
     }
   }
 

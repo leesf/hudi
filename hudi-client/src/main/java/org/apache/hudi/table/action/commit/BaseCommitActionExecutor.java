@@ -90,6 +90,7 @@ public abstract class BaseCommitActionExecutor<T extends HoodieRecordPayload<T>,
 
     WorkloadProfile profile = null;
     if (isWorkloadProfileNeeded()) {
+      jsc.setJobGroup(this.getClass().getSimpleName(), "BuildWorkloadProfile");
       profile = new WorkloadProfile(inputRecordsRDD);
       LOG.info("Workload profile :" + profile);
       saveWorkloadProfileMetadataToInflight(profile, instantTime);
@@ -209,6 +210,7 @@ public abstract class BaseCommitActionExecutor<T extends HoodieRecordPayload<T>,
   }
 
   protected void commit(Option<Map<String, String>> extraMetadata, HoodieWriteMetadata result) {
+    jsc.setJobGroup(this.getClass().getSimpleName(), "CommitStatusCollect-WritingStatus");
     commit(extraMetadata, result, result.getWriteStatuses().map(WriteStatus::getStat).collect());
   }
 
