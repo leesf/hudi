@@ -375,12 +375,15 @@ public abstract class HoodieBackedTableMetadataWriter implements HoodieTableMeta
         if (p.getRight().length > filesInDir.size()) {
           // Is a partition. Add all data files to result.
           String partitionName = FSUtils.getRelativePartitionPath(new Path(datasetMetaClient.getBasePath()), p.getLeft());
+          filesInDir =
+                  filesInDir.stream().filter(fs -> !fs.getPath().getName().equals(HoodieTableMetaClient.METAFOLDER_NAME)).collect(
+                          Collectors.toList());
           partitionToFileStatus.put(partitionName, filesInDir);
         } else {
           // Add sub-dirs to the queue
           pathsToList.addAll(Arrays.stream(p.getRight())
               .filter(fs -> fs.isDirectory() && !fs.getPath().getName().equals(HoodieTableMetaClient.METAFOLDER_NAME))
-              .map(fs -> fs.getPath())
+              .map(FileStatus::getPath)
               .collect(Collectors.toList()));
         }
       });
